@@ -1,1 +1,62 @@
-hello
+# ---- vLLM on V100 (compute 7.0) ----
+# Uses PyTorch 2.2.2 (last torch supporting cc 7.0) + CUDA 12.1 wheels
+# Runs the vLLM OpenAI-compatible server on port 8000
+FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+ARG PIP_DISABLE_PIP_VERSION_CHECK=1
+ARG PYTHON=python3
+ARG PIP=pip3
+
+# System deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip python3-dev git ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Make python3 default "python"
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3 1 \
+ && update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    # Ensure any on-the-fly CUDA builds (rare) target V100
+    TORCH_CUDA_ARCH_LIST="7.0" \
+    # Force vLLM to avoid Flash-Attention on V100
+    VLLM_USE_FLASH_ATTENTION="0" \
+    VLLM_NO_FLASH_ATTENTION="1" \
+    VLLM_WORKER_MULTIPROC_METHOD="spawn" \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+# ---- Python packages ----
+# Pin torch/torchvision/torchaudio to 2.2.2 + cu121 wheels
+RUN ${PIP} install --upgrade pip setuptools wheel \
+ && ${PIP} install --extra-index-url https://download.pytorch.org/whl/cu121 \
+    torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2
+
+# vLLM: choose a version that works with torch<=2.2
+# 0.3.x is a safe line for V100 setups.
+ARG VLLM_VERSION=0.3.3
+RUN ${PIP} install \
+    "vllm==${VLLM_VERSION}" \
+    "transformers>=4.41,<4.46" \
+    "accelerate>=0.29" \
+    "huggingface_hub>=0.22" \
+    "sentencepiece" \
+    "einops"
+
+# Optional: non-root user
+ARG USER=app
+ARG UID=10001
+RUN useradd -m -u ${UID} -s /bin/bash ${USER}
+USER ${USER}
+WORKDIR /workspace
+
+EXPOSE 8000
+
+# Default command runs the OpenAI-compatible server
+# Replace the model with whatever you need (HF token via env if private).
+CMD ["python", "-m", "vllm.entrypoints.openai.api_server", \
+     "--host", "0.0.0.0", "--port", "8000", \
+     "--model", "meta-llama/Meta-Llama-3-8B-Instruct"]
