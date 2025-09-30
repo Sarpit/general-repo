@@ -50,3 +50,14 @@ EXPOSE 8000 8100
 # Entrypoint allows Compose to inject runtime args like --model, --host, --port
 ENTRYPOINT ["python", "-m", "vllm.entrypoints.openai.api_server"]
 CMD ["--help"]
+
+
+
+CFG="config.json"
+
+# backup first
+cp "$CFG" "${CFG}.bak"
+
+# set max context = 8192, rope_scaling disabled
+jq '.rope_scaling = null | .max_position_embeddings = 8192' "$CFG" > "$CFG.tmp" \
+  && mv "$CFG.tmp" "$CFG"
