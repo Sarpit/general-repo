@@ -61,3 +61,13 @@ cp "$CFG" "${CFG}.bak"
 # set max context = 8192, rope_scaling disabled
 jq '.rope_scaling = null | .max_position_embeddings = 8192' "$CFG" > "$CFG.tmp" \
   && mv "$CFG.tmp" "$CFG"
+
+
+
+curl http://127.0.0.1:8100/v1/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+        "model": "/models/Llama-3.1-8B-Instruct",
+        "prompt": "What is the capital of France?",
+        "max_tokens": 100
+      }'
