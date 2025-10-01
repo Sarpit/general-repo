@@ -71,3 +71,64 @@ curl http://127.0.0.1:8100/v1/completions \
         "prompt": "What is the capital of France?",
         "max_tokens": 100
       }'
+
+
+# litellm_config.yaml
+model_list:
+  - model_name: local-llama          # what clients will use
+    litellm_params:
+      # talk to vLLM via OpenAI-compatible API
+      model: /models/Llama-3.1-8B-Instruct
+      custom_llm_provider: openai
+      api_base: http://127.0.0.1:8100/v1
+      # no real key is needed by vLLM; LiteLLM still expects a header
+      api_key: "dummy"
+
+# Optional hardening / QoS
+num_retries: 1
+timeout: 120
+telemetry: false
+cache: false
+
+
+
+litellm:
+    image: ghcr.io/berriai/litellm:latest
+    container_name: litellm
+    # host networking so it can reach vLLM at 127.0.0.1:8100
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ./litellm_config.yaml:/config.yaml:ro
+    environment:
+      - LITELLM_LOG=info
+      # Optional: require a key for clients (static)
+      - LITELLM_MASTER_KEY=secret123
+    command: >
+      litellm --port 9001
+              --config /config.yaml
+              --host 127.0.0.1
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:9001/v1/models"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+curl http://127.0.0.1:9001/v1/chat/completions \
+ -H "Content-Type: application/json" \
+  -H "Authorization: Bearer secret123" \
+  -d '{
+    "model": "local-llama",
+    "messages":[{"role":"user","content":"Summarize vLLM vs LiteLLM in one line."}],
+    "max_tokens": 64
+  }'
+
+
+curl -H "Authorization: Bearer secret123" http://127.0.0.1:9001/v1/models
+
+
+
+
+
+
+
