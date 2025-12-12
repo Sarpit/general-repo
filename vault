@@ -39,4 +39,6 @@ services:
 
 
   mkdir -p /mnt/user-data/outputs && cp -r /home/claude/vault-docker/* /mnt/user-data/outputs/
+
+Please open inbound TCP port 8080 on server op-mai002 to allow access from dev13 and dev13lin servers. This port is used by the NGINX service which acts as a reverse proxy/gateway for our Local LLM deployment (LiteLLM API interfacing with vLLM inference engine running Llama-3.1-8B-Instruct model). The access is required for development and testing purposes, enabling API integration testing and application development workflows from these development environments.
   
