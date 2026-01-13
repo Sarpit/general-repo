@@ -194,5 +194,92 @@ services:
 
 
 
+----
+version: '3.9'
 
+services:
+  dvllm:
+    image: docker.io/library/vllm-custom:v2
+    container_name: vllm
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - ${MODEL_DIR}:/models:Z
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_DEVICE_ORDER=PCI_BUS_ID
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    command: >
+      --model /models/${MODEL_NAME}
+      --max-model-len 8192
+      --host 127.0.0.1
+      --port 8100
+      --dtype half
+
+  litellm:
+    image: bosdoohst01.genisis.va.gov:5000/litellm/litellm:v1.75.8-stable
+    container_name: litellm
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /litellm_config.yaml:/config.yaml:ro
+      - /var/log/litellm:/app/logs              # Mount for log files
+    environment:
+      - LITELLM_LOG=DEBUG                        # Enable debug logging
+      - LITELLM_MASTER_KEY=secret123
+      - JSON_LOGS=true                           # Enable JSON formatted logs
+    command: >
+      bash -c "
+      mkdir -p /app/logs &&
+      python3 -m litellm
+      --port 9001
+      --config /config.yaml
+      --host 127.0.0.1
+      --detailed_debug
+      2>&1 | tee -a /app/logs/litellm.log
+      "
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"                          # Max size per log file
+        max-file: "5"                            # Keep 5 rotated files
+        compress: "true"                         # Compress old logs
+
+  nginx-proxy:
+    image: docker.io/library/nginx:latest
+    container_name: nginx-proxy
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - dvllm
+      - litellm
+----
+model_list:
+  - model_name: custom-model
+    litellm_params:
+      model: vllm/models/${MODEL_NAME}
+      api_base: http://127.0.0.1:8100
+
+general_settings:
+  master_key: secret123
+  
+  # Enable JSON formatted logs
+  json_logs: true
+  
+  # Optional: Store logs in database (requires DATABASE_URL)
+  # store_prompts_in_spend_logs: true
+  
+litellm_settings:
+  # Enable verbose logging
+  set_verbose: true
+  
+  # Don't drop parameters (log everything)
+  drop_params: false
+  
+  # Optional: Success/failure callbacks for external logging
+  # success_callback: ["langfuse", "s3"]
+  # failure_callback: ["sentry"]
+---
 
