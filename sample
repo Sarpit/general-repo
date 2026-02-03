@@ -297,3 +297,37 @@ openwebui:
       - WEBUI_AUTH=false  # set to true if you want login
     depends_on:
       - litellm
+
+
+
+
+---
+#!/bin/bash
+
+set -e
+
+SOURCE="$HOME/genhub-repos/genhub/"
+DEST="$HOME/genhub_aws/"
+
+echo "🚀 Syncing Azure DevOps repo → GitHub repo"
+
+# Safety checks
+if [ ! -d "$SOURCE" ]; then
+  echo "❌ Source repo not found at $SOURCE"
+  exit 1
+fi
+
+if [ ! -d "$DEST/.git" ]; then
+  echo "❌ Destination is not a Git repo: $DEST"
+  exit 1
+fi
+
+rsync -av --delete \
+  --exclude ".git" \
+  --exclude ".gitignore" \
+  --exclude "node_modules" \
+  --exclude ".DS_Store" \
+  "$SOURCE" "$DEST"
+
+echo "✅ Sync complete"
+echo "📦 Now run: cd ~/genhub_aws && git status"
