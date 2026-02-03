@@ -306,28 +306,56 @@ openwebui:
 
 set -e
 
-SOURCE="$HOME/genhub-repos/genhub/"
-DEST="$HOME/genhub_aws/"
+AZURE_REPO="$HOME/genhub-repos/genhub"
+GITHUB_REPO="$HOME/genhub_aws"
+BRANCH="dev"
 
-echo "🚀 Syncing Azure DevOps repo → GitHub repo"
+echo "🔄 Rsync '$BRANCH' from Azure DevOps → GitHub"
 
-# Safety checks
-if [ ! -d "$SOURCE" ]; then
-  echo "❌ Source repo not found at $SOURCE"
+# --- Sanity checks ---
+if [ ! -d "$AZURE_REPO/.git" ]; then
+  echo "❌ Azure repo not found: $AZURE_REPO"
   exit 1
 fi
 
-if [ ! -d "$DEST/.git" ]; then
-  echo "❌ Destination is not a Git repo: $DEST"
+if [ ! -d "$GITHUB_REPO/.git" ]; then
+  echo "❌ GitHub repo not found: $GITHUB_REPO"
   exit 1
 fi
+
+# --- Azure repo: pull latest dev ---
+cd "$AZURE_REPO"
+
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  echo "❌ Azure repo has uncommitted changes. Aborting."
+  exit 1
+fi
+
+echo "📥 Checking out '$BRANCH' in Azure repo"
+git checkout "$BRANCH"
+
+echo "⬇️ Pulling latest '$BRANCH' from Azure DevOps"
+git pull origin "$BRANCH"
+
+# --- GitHub repo: checkout dev ---
+cd "$GITHUB_REPO"
+
+echo "📥 Checking out '$BRANCH' in GitHub repo"
+git checkout "$BRANCH" 2>/dev/null || git checkout -b "$BRANCH"
+
+# --- Rsync files ---
+echo "🚀 Rsyncing files..."
 
 rsync -av --delete \
   --exclude ".git" \
   --exclude ".gitignore" \
   --exclude "node_modules" \
   --exclude ".DS_Store" \
-  "$SOURCE" "$DEST"
+  "$AZURE_REPO/" "$GITHUB_REPO/"
 
-echo "✅ Sync complete"
-echo "📦 Now run: cd ~/genhub_aws && git status"
+echo "✅ Rsync complete"
+
+# --- Show status ---
+echo "📦 GitHub repo status:"
+git status
+
