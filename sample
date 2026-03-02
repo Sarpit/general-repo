@@ -488,12 +488,12 @@ CMD php init.php; \
         "elgg/elgg": "2.3.*",
         "brettp/anypage": "2.x-dev",
         "healthcare-fraud-portal/elgg-hfp": "^0",
-        "simshaun/recurr": "dev-master",
+        "simshaun/recurr": "^4.0",
         "html2text/html2text": "^2.0",
         "hypejunction/ambercal_settings_transfer": "1.2.1",
         "elgg/apiadmin": "dev-master",
         "guzzlehttp/guzzle": "^6.3",
-        "aws/aws-sdk-php": "^3.19",
+        "aws/aws-sdk-php": ">=3.19 <3.300",
         "elgg/mentions": "dev-master",
         "predis/predis": "2.0.0"
     },
@@ -522,7 +522,11 @@ CMD php init.php; \
         "allow-plugins": {
             "composer/installers": true,
             "oomphinc/composer-installers-extender": true
-        }
+        },
+        "audit": {
+            "abandoned": "ignore"
+        },
+        "block-insecure": false
     },
     "replace": {
         "roave/security-advisories": "*"
