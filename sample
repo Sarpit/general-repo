@@ -359,3 +359,179 @@ echo "✅ Rsync complete"
 echo "📦 GitHub repo status:"
 git status
 
+
+
+
+---
+FROM php:7.3-apache-bullseye AS base
+
+ENV COMPOSER_PROCESS_TIMEOUT=600
+ENV COMPOSER_MEMORY_LIMIT=-1
+
+RUN rm -rf /var/www/html/index.html
+
+# grab VA certs
+COPY ci/VA.pem /usr/local/share/ca-certificates/VA.crt
+
+RUN cd /usr/local/share/ca-certificates && \
+    curl -O http://pki.mitre.org/MITRE%20BA%20Root.crt && \
+    curl -O http://pki.mitre.org/MITRE%20BA%20NPE%20CA-3.crt
+
+RUN update-ca-certificates
+
+RUN mkdir -p /etc/ldap
+RUN printf "TLS_REQCERT never" > /etc/ldap/ldap.conf
+
+# The VA blocks some non-US servers
+RUN sed -i -e 's/http:\/\/deb\.debian/http:\/\/ftp\.us\.debian/g' /etc/apt/sources.list && \
+    sed -i -e 's/http:\/\/security\.debian/http:\/\/security\.us\.debian/g' /etc/apt/sources.list
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN http_proxy=$http_proxy https_proxy=$https_proxy \
+    apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install -y \
+    libldap2-dev libpng-dev libxml2-dev libfreetype6-dev libjpeg62-turbo-dev libzip-dev \
+    unzip git msmtp
+
+RUN docker-php-ext-configure gd \
+    --with-freetype-dir=/usr/lib/ \
+    --with-png-dir=/usr/lib/ \
+    --with-jpeg-dir=/usr/lib/ \
+    --with-gd
+
+RUN docker-php-ext-configure ldap \
+    --with-libdir=lib/x86_64-linux-gnu/
+
+RUN docker-php-ext-install -j$(getconf _NPROCESSORS_ONLN) gd ldap mbstring pdo_mysql xml zip
+
+FROM base as build
+
+RUN rm -rf /var/www/html/*
+
+# This should be the same as the WORKDIR of the final image, to avoid symlink
+# issues
+WORKDIR /var/www/html
+COPY ci/ssh/* /root/.ssh/
+
+# Install Composer 2 via multi-stage copy (replaces manual curl of Composer 1.10.19)
+COPY --from=composer/composer:2-bin /composer /usr/local/bin/composer
+
+RUN http_proxy=$http_proxy https_proxy=$https_proxy \
+    apt-get update \
+    && apt-get install -y curl git \
+    && eval `ssh-agent` \
+    && chmod 0600 /root/.ssh/elgg_hfp_deploy \
+    && ssh-add /root/.ssh/elgg_hfp_deploy
+
+ARG GIT_USER
+ARG GIT_PASS
+
+RUN http_proxy=$http_proxy https_proxy=$https_proxy \
+    && composer config --global cafile /etc/ssl/certs/ca-certificates.crt \
+    && composer config --global process-timeout 150 \
+    && composer config --global github-protocols https \
+    # The composer.json file has a setting that forces git https downloads
+    # Removed: composer global require "fxp/composer-asset-plugin:~1.3" (incompatible with Composer 2)
+    # Asset management now handled via asset-packagist repository in composer.json
+    && composer create-project --no-install elgg/starter-project:2.x-dev .
+
+COPY composer.json ./
+COPY elgg-hfp ./elgg-hfp
+
+# The double install is required according to the elgg docs
+RUN http_proxy=$http_proxy https_proxy=$https_proxy \
+    composer install --no-dev --prefer-source && \
+    composer install --no-dev --prefer-source
+
+FROM base
+WORKDIR /var/www/html
+
+COPY ci/msmtprc /etc/
+COPY ci/php/* $PHP_INI_DIR/conf.d/
+
+# save email to a dir
+#ENV MAIL_DIR=/var/www/html/mail/
+#RUN mkdir -p $MAIL_DIR && chmod 777 $MAIL_DIR && echo 'sendmail_path = /fake-sendmail.sh' >> $PHP_INI_DIR/conf.d/sendmail.ini \
+#    && echo 'NAME=`date` ; date >> $MAIL_DIR/$NAME.txt; while IFS= read -r line; do echo $line >> $MAIL_DIR/$NAME.txt; done; echo "" >> $MAIL_DIR/$NAME.txt' >> /fake-sendmail.sh \
+#    && chmod +x /fake-sendmail.sh
+
+# Use this for the data directory and filestore
+RUN mkdir -p /var/data/genhub/views_simplecache \
+    && chown -R www-data:www-data /var/data/genhub \
+    && a2enmod rewrite
+COPY --from=build --chown=www-data:www-data /var/www/html ./
+COPY --chown=www-data:www-data . .
+
+# Fix for non-root users writing to stdout (e.g. msmtp)
+# https://github.com/moby/moby/issues/31243#issuecomment-406879017
+RUN for u in www-data msmtp; do usermod -aG tty $u; done
+
+# This was taken out of the CMD (i.e. run at startup) since it takes a long time to complete (~2 minutes)
+RUN chown -R www-data:www-data /var/www/html /var/data/genhub
+
+# Clear cache, set permissions, and run init script before booting
+CMD php init.php; \
+    # TODO figure out why genhub is using root for the cache, then remove this
+    chmod o+w /; \
+    rm -rf /var/data/genhub/views_simplecache/* /var/data/genhub/system_cache/*; \
+    apache2-foreground
+---
+{
+    "type": "project",
+    "name": "genisis/genhub",
+    "version": "6.10.1",
+    "license": "MIT",
+    "prefer-stable": true,
+    "minimum-stability": "dev",
+    "require": {
+        "elgg/elgg": "2.3.*",
+        "brettp/anypage": "2.x-dev",
+        "healthcare-fraud-portal/elgg-hfp": "^0",
+        "simshaun/recurr": "dev-master",
+        "html2text/html2text": "^2.0",
+        "hypejunction/ambercal_settings_transfer": "1.2.1",
+        "elgg/apiadmin": "dev-master",
+        "guzzlehttp/guzzle": "^6.3",
+        "aws/aws-sdk-php": "^3.19",
+        "elgg/mentions": "dev-master",
+        "predis/predis": "2.0.0"
+    },
+    "require-dev": {
+        "srokap/code_review": "^1.0.5",
+        "phpunit/phpunit": "^4.7"
+    },
+    "scripts": {
+        "test": "phpunit",
+        "post-install-cmd": "\\Elgg\\Composer\\PostInstall::execute"
+    },
+    "repositories": [
+        {
+            "type": "composer",
+            "url": "https://asset-packagist.org"
+        },
+        {
+            "type": "path",
+            "url": "./elgg-hfp"
+        }
+    ],
+    "config": {
+        "fxp-asset": {
+            "enabled": false
+        },
+        "allow-plugins": {
+            "composer/installers": true,
+            "oomphinc/composer-installers-extender": true
+        }
+    },
+    "replace": {
+        "roave/security-advisories": "*"
+    }
+}
+
+
+
+---
+
+---
+
