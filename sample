@@ -641,3 +641,19 @@ model_list:
       model: openai/Qwen_Qwen3-Coder-30B-A3B-Instruct
       api_base: http://127.0.0.1:8103/v1
       api_key: "dummy"
+
+
+
+---
+guardrails:
+  - guardrail_name: "prompt-injection-guard"
+    litellm_params:
+      guardrail: "lakera_prompt_injection"
+      mode: "pre_call"
+      default_on: true
+
+  - guardrail_name: "pii-masking"
+    litellm_params:
+      guardrail: "presidio"
+      mode: "pre_call"
+      default_on: true
