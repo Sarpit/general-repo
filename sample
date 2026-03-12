@@ -536,6 +536,108 @@ CMD php init.php; \
 
 
 ---
+# ==========================================
+  # vLLM - MedGemma 27B
+  # ==========================================
+  vllm-medgemma:
+    image: docker.io/library/vllm-custom:v2
+    container_name: vllm-medgemma
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /var/podman/llm-models:/models:Z
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_DEVICE_ORDER=PCI_BUS_ID
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    command: >
+      --model /models/google_medgemma-27b-it
+      --max-model-len 8192
+      --host 127.0.0.1
+      --port 8101
+      --dtype half
+      --max-num-seqs 16
+      --max-num-batched-tokens 8192
+      --gpu-memory-utilization 0.9
+      --disable-log-requests
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:8101/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 
+  # ==========================================
+  # vLLM - Qwen3 32B
+  # ==========================================
+  vllm-qwen:
+    image: docker.io/library/vllm-custom:v2
+    container_name: vllm-qwen
+    network_mode: host
+    restart: unless-stopped
+    volumes:
+      - /var/podman/llm-models:/models:Z
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_DEVICE_ORDER=PCI_BUS_ID
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    command: >
+      --model /models/Qwen_Qwen3-32B
+      --max-model-len 8192
+      --host 127.0.0.1
+      --port 8102
+      --dtype half
+      --max-num-seqs 16
+      --max-num-batched-tokens 8192
+      --gpu-memory-utilization 0.9
+      --disable-log-requests
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://127.0.0.1:8102/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
 ---
+depends_on:
+    vllm:
+      condition: service_healthy
+    vllm-medgemma:
+      condition: service_healthy
+    vllm-qwen:
+      condition: service_healthy
+---
+model_list:
+  # ... your existing models ...
 
+  - model_name: medgemma-27b-it
+    litellm_params:
+      model: openai/google_medgemma-27b-it
+      api_base: http://127.0.0.1:8101/v1
+      api_key: "dummy"
+
+  - model_name: qwen3-32b
+    litellm_params:
+      model: openai/Qwen_Qwen3-32B
+      api_base: http://127.0.0.1:8102/v1
+      api_key: "dummy"
+
+  # Optional — Qwen Coder (if using port 8103)
+  - model_name: qwen3-coder-30b
+    litellm_params:
+      model: openai/Qwen_Qwen3-Coder-30B-A3B-Instruct
+      api_base: http://127.0.0.1:8103/v1
+      api_key: "dummy"
