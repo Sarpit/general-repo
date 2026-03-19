@@ -657,3 +657,21 @@ guardrails:
       guardrail: "presidio"
       mode: "pre_call"
       default_on: true
+
+
+
+
+---
+RUN chown -R www-data:www-data /var/www/html /var/data/genhub && \
+    chown -R www-data:www-data /var/run/apache2 /var/lock/apache2 /var/log/apache2 && \
+    chmod o+w / && \
+    sed -i 's/Listen 80/Listen 8080/' /etc/apache2/ports.conf && \
+    sed -i 's/:80>/:8080>/' /etc/apache2/sites-available/000-default.conf
+
+EXPOSE 8080
+USER www-data
+
+CMD php init.php; \
+    rm -rf /var/data/genhub/views_simplecache/* /var/data/genhub/system_cache/*; \
+    apache2-foreground
+---
