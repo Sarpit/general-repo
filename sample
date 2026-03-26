@@ -685,3 +685,10 @@ CMD php init.php; \
 RUN sed -i -e 's/deb.debian.org/archive.debian.org/g' \
     -e 's/security.debian.org\/debian-security/archive.debian.org\/debian-security/g' \
     -e '/bullseye-updates/d' /etc/apt/sources.list
+
+
+RUN sed -i \
+    -e 's|http://deb.debian.org/debian|http://archive.debian.org/debian|g' \
+    -e 's|http://security.debian.org/debian-security|http://archive.debian.org/debian-security|g' \
+    -e '/bullseye-updates/d' \
+    /etc/apt/sources.list
