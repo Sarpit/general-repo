@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  vllm:
+    image: vllm/vllm-openai:v0.19.0
+    container_name: vllm-qwen
+    runtime: nvidia
+    restart: unless-stopped
+
+    volumes:
+    - /var/podman/llm-models:/data:Z
+
+    ports:
+      - "8907:8000"
+
+    shm_size: "10.24gb"
+
+    environment:
+      - CUDA_DEVICE_ORDER=PCI_BUS_ID
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    command: >
+      --model /data/Qwen_Qwen3-32B
+      --served-model-name Qwen/Qwen3-Coder-30B-A3B-Instruct
+      --tensor-parallel-size 2
+      --dtype float16
+      --gpu-memory-utilization 0.98
+      --max-model-len 4096
+      --max-num-seqs 16
+      --max-num-batched-tokens 4096
+      --enforce-eager
+
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
