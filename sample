@@ -698,3 +698,29 @@ RUN sed -i \
     -e 's|http://deb.debian.org/debian|http://archive.debian.org/debian|g' \
     -e '/bullseye-updates/d' \
     /etc/apt/sources.list
+
+
+
+
+
+
+
+
+
+---
+mcpo:
+  image: ghcr.io/open-webui/mcpo:main
+  container_name: mcpo
+  restart: unless-stopped
+  ports:
+    - "8002:8000"        # accessible at http://localhost:8002
+  command: >
+    --port 8000
+    --api-key "test-mcp-key"
+    -- uvx mcp-server-time --local-timezone=Asia/Kolkata
+---
+
+
+
+
+
