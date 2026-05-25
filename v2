@@ -1,0 +1,115 @@
+openwebui:
+  image: my-branded-openwebui:latest   # ← now uses your custom built image
+  build:
+    context: ./openwebui-branding       # ← folder with your Dockerfile + assets
+    dockerfile: Dockerfile
+  container_name: openwebui
+  restart: unless-stopped
+  ports:
+    - "3000:8080"
+  volumes:
+    - ./openwebui_data:/app/backend/data
+  environment:
+    - OPENAI_API_BASE_URL=http://192.168.122.1:8907/v1
+    - OPENAI_API_KEY=none
+    - WEBUI_AUTH=true
+    - WEBUI_NAME=
+    - WEBUI_BANNER_TEXT=
+    - WEBUI_ADMIN_EMAIL=admin@localhost
+    - WEBUI_ADMIN_PASSWORD=Passw0rd!123
+    - OFFLINE_MODE=true
+    - ENABLE_RAG_WEB_SEARCH=none
+    - CONTENT_EXTRACT_ENGINE=none
+    - ENABLE_LDAP=true
+    - LDAP_SERVER_LABEL=
+    - LDAP_SERVER_HOST=
+    - LDAP_SERVER_PORT=389
+    - LDAP_SEARCH_BASE=
+    - LDAP_SEARCH_FILTER=(objectClass=person)
+    - LDAP_ATTRIBUTE_FOR_USERNAME=uid
+    - LDAP_ATTRIBUTE_FOR_MAIL=mail
+    - LDAP_USE_TLS=false
+    - DEFAULT_USER_ROLE=user
+    - ENABLE_SIGNUP=true
+
+
+---
+
+
+FROM docker.io/openwebui/open-webui:0.8
+
+# ─── Favicon & PWA icons (all variants) ──────────────────────────────────────
+COPY icon.png /app/build/static/favicon.png
+COPY icon.png /app/build/static/favicon.ico
+COPY icon.png /app/build/static/favicon.svg
+COPY icon.png /app/build/static/favicon-96x96.png
+COPY icon.png /app/build/static/favicon-dark.png
+COPY icon.png /app/build/static/apple-touch-icon.png
+COPY icon.png /app/build/static/splash.png
+COPY icon.png /app/build/static/splash-dark.png
+COPY icon.png /app/build/static/web-app-manifest-192x192.png
+COPY icon.png /app/build/static/web-app-manifest-512x512.png
+
+# ─── Sidebar logo ─────────────────────────────────────────────────────────────
+COPY logo.png /app/build/static/logo.png
+
+# ─── Replace all "Open WebUI" text in built frontend files ───────────────────
+RUN find /app/build -type f \( -name "*.js" -o -name "*.html" \) \
+    -exec sed -i 's/Open WebUI/C-DACS AI/g' {} + || true && \
+    find /app/build -type f \( -name "*.js" -o -name "*.html" \) \
+    -exec sed -i 's/OpenWebUI/CDACSAI/g' {} + || true
+
+# ─── Inject custom CSS ────────────────────────────────────────────────────────
+COPY custom.css /app/build/static/custom.css
+
+
+
+---
+
+
+/* ── Hide the default Open WebUI SVG logo in the sidebar ── */
+nav img[alt="Open WebUI"],
+.sidebar img,
+img[src*="favicon"] {
+  display: none !important;
+}
+
+/* ── Inject your logo.png as sidebar brand image ── */
+nav a[href="/"] {
+  background-image: url('/static/logo.png') !important;
+  background-size: contain !important;
+  background-repeat: no-repeat !important;
+  background-position: left center !important;
+  display: block !important;
+  width: 180px !important;
+  height: 48px !important;
+  min-height: 48px !important;
+}
+
+/* ── Hide the text label next to the logo if needed ── */
+nav a[href="/"] span {
+  display: none !important;
+}
+
+/* ─── Optional: accent color to match C-DACS branding ─── */
+:root {
+  --color-primary: #0057a8;   /* change to your brand color */
+}
+
+button[type="submit"],
+#send-message-button {
+  background-color: var(--color-primary) !important;
+}
+
+[role="switch"][aria-checked="true"] {
+  background-color: var(--color-primary) !important;
+}
+
+
+
+---
+
+
+
+
+
