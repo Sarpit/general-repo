@@ -93,7 +93,7 @@ nav a[href="/"] span {
 
 /* ─── Optional: accent color to match C-DACS branding ─── */
 :root {
-  --color-primary: #0057a8;   /* change to your brand color */
+  --color-primary: #0057a8;
 }
 
 button[type="submit"],
@@ -103,6 +103,16 @@ button[type="submit"],
 
 [role="switch"][aria-checked="true"] {
   background-color: var(--color-primary) !important;
+}
+
+/* ── FIXED: Replace sidebar favicon with your logo ── */
+img.sidebar-new-chat-icon {
+  content: url('/static/logo.png') !important;
+  width: 140px !important;
+  height: 36px !important;
+  max-width: none !important;
+  border-radius: 0 !important;
+  object-fit: contain !important;
 }
 
 
