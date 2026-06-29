@@ -118,7 +118,60 @@ img.sidebar-new-chat-icon {
 
 
 ---
+services:
+  vllm:
+    image: vllm/vllm-openai:v0.19.0
+    container_name: vllm
+    restart: unless-stopped
 
+    # GPU access via CDI (both L40S cards).
+    # Equivalent to: --device nvidia.com/gpu=0 --device nvidia.com/gpu=1
+    devices:
+      - nvidia.com/gpu=0
+      - nvidia.com/gpu=1
+
+    # Equivalent to: --security-opt=label=disable
+    security_opt:
+      - label=disable
+
+    # Equivalent to: --shm-size=10.24gb
+    shm_size: "10.24gb"
+
+    # Equivalent to: --add-host=host.docker.internal:host-gateway
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    environment:
+      - CUDA_DEVICE_ORDER=PCI_BUS_ID
+
+    # host:container  -> 8907 on host maps to 8000 in container
+    ports:
+      - "8907:8000"
+
+    # Model directory bind mount. The :z relabel is what fixes the
+    # SELinux/permission issue so the container can read the models.
+    volumes:
+      - /var/data/llm-models:/data:z
+
+    # vLLM server arguments (everything after the image in podman run)
+    command:
+      - --model
+      - /data/Qwen_Qwen3-Coder-30B-A3B-Instruct
+      - --served-model-name
+      - Qwen/Qwen_Qwen3-Coder-30B-A3B-Instruct
+      - --tensor-parallel-size
+      - "2"
+      - --dtype
+      - float16
+      - --gpu-memory-utilization
+      - "0.98"
+      - --max-model-len
+      - "4096"
+      - --max-num-seqs
+      - "16"
+      - --max-num-batched-tokens
+      - "4096"
+      - --enforce-eager
 
 
 
