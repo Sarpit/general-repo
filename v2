@@ -189,7 +189,7 @@ curl -s http://localhost:8907/v1/chat/completions \
     "messages": [{"role": "user", "content": "Say hello in one word."}],
     "max_tokens": 20
   }' | jq
-If you're on the host running podman (pthgpu13), use localhost. If running from another machine, swap in that host's IP.
+If you're on the host running podman (), use localhost. If running from another machine, swap in that host's IP.
 
 If you want to test it through LiteLLM instead (to verify the full chain you just wired up):
 
