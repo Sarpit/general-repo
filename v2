@@ -175,4 +175,68 @@ services:
 
 
 
+1. List models (confirms it's up and serving):
+
+
+curl -s http://localhost:8907/v1/models | jq
+2. Send a test chat completion:
+
+
+curl -s http://localhost:8907/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "Qwen/Qwen_Qwen3-Coder-30B-A3B-Instruct",
+    "messages": [{"role": "user", "content": "Say hello in one word."}],
+    "max_tokens": 20
+  }' | jq
+If you're on the host running podman (pthgpu13), use localhost. If running from another machine, swap in that host's IP.
+
+If you want to test it through LiteLLM instead (to verify the full chain you just wired up):
+
+
+curl -s http://localhost:9001/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-master-key-change-me" \
+  -d '{
+    "model": "qwen3-30b",
+    "messages": [{"role": "user", "content": "Say hello in one word."}],
+    "max_tokens": 20
+  }' | jq
+
+
+
+
+
+1. Health check (the endpoint used in the compose healthcheck):
+
+
+curl -s http://localhost:9001/health | jq
+2. List models LiteLLM has configured:
+
+
+curl -s http://localhost:9001/v1/models \
+  -H "Authorization: Bearer sk-admin-master-key-change-me" | jq
+3. Chat completion through LiteLLM → vLLM (full chain test):
+
+
+curl -s http://localhost:9001/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer sk-admin-master-key-change-me" \
+  -d '{
+    "model": "qwen3-30b",
+    "messages": [{"role": "user", "content": "Say hello in one word."}],
+    "max_tokens": 20
+  }' | jq
+4. Detailed health check (verifies LiteLLM can actually reach its backend, vLLM):
+
+
+curl -s http://localhost:9001/health/readiness \
+  -H "Authorization: Bearer sk-admin-master-key-change-me" | jq
+
+
+
+
+
+
+
 
